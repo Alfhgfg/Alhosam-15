@@ -49,14 +49,16 @@ jobs:
             ${{ runner.os }}-npm-
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
+        with:
+          packages: platform-tools
 
       - name: Install Android SDK 36 & Build-Tools
         shell: bash
         run: |
           set -euo pipefail
           yes | sdkmanager --licenses >/dev/null || true
-          sdkmanager "platform-tools" "platforms;android-36" "build-tools;35.0.0" "build-tools;36.0.0"
+          sdkmanager "platforms;android-36" "build-tools;35.0.0" "build-tools;36.0.0"
 
       - name: Install npm dependencies
         shell: bash
@@ -162,13 +164,20 @@ jobs:
             exit 1
           fi
 
-          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -n 1)
-          if [ -z "$APKSIGNER" ]; then
-            echo "::error::apksigner not found in $ANDROID_HOME/build-tools."
+          SDK_DIR="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          if [ -z "$SDK_DIR" ] || [ ! -d "$SDK_DIR/build-tools" ]; then
+            echo "::error::Android SDK build-tools directory not found (ANDROID_HOME/ANDROID_SDK_ROOT)."
             exit 1
           fi
 
-          "$APKSIGNER" verify --verbose "$APK_FILE"
+          APKSIGNER=$(find "$SDK_DIR/build-tools" -name apksigner | sort -V | tail -n 1)
+          if [ -z "$APKSIGNER" ]; then
+            echo "::error::apksigner not found in $SDK_DIR/build-tools."
+            exit 1
+          fi
+
+          "$APKSIGNER" verify --verbose --print-certs "$APK_FILE"
+          jarsigner -verify "$AAB_FILE"
 
           cp "$APK_FILE" release-artifacts/app-release.apk
           cp "$AAB_FILE" release-artifacts/app-release.aab
