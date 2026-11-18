@@ -3,8 +3,17 @@ apply plugin: 'com.android.application'
 def keystorePropertiesFile = rootProject.file("keystore.properties")
 def keystoreProperties = new Properties()
 if (keystorePropertiesFile.exists()) {
-    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
+    keystorePropertiesFile.withInputStream { stream ->
+        keystoreProperties.load(stream)
+    }
 }
+def envKeystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
+def envKeystorePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+def envKeystoreAlias = System.getenv("ANDROID_KEYSTORE_ALIAS")
+def envKeyPassword = System.getenv("ANDROID_KEYSTORE_KEY_PASSWORD") ?: envKeystorePassword
+def hasEnvSigning = envKeystorePath && file(envKeystorePath).exists() && envKeystorePassword && envKeystoreAlias
+def propStoreFilePath = keystoreProperties['storeFile']
+def hasPropSigning = keystorePropertiesFile.exists() && propStoreFilePath && rootProject.file(propStoreFilePath).exists() && keystoreProperties['storePassword'] && keystoreProperties['keyAlias'] && keystoreProperties['keyPassword']
 
 android {
     namespace = "com.alhussam.grocery"
@@ -24,8 +33,13 @@ android {
     }
     signingConfigs {
         release {
-            if (keystorePropertiesFile.exists()) {
-                storeFile rootProject.file(keystoreProperties['storeFile'])
+            if (hasEnvSigning) {
+                storeFile file(envKeystorePath)
+                storePassword envKeystorePassword
+                keyAlias envKeystoreAlias
+                keyPassword envKeyPassword
+            } else if (hasPropSigning) {
+                storeFile rootProject.file(propStoreFilePath)
                 storePassword keystoreProperties['storePassword']
                 keyAlias keystoreProperties['keyAlias']
                 keyPassword keystoreProperties['keyPassword']
@@ -34,11 +48,11 @@ android {
     }
     buildTypes {
         release {
-            if (keystorePropertiesFile.exists()) {
+            if (hasEnvSigning || hasPropSigning) {
                 signingConfig signingConfigs.release
             }
             minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 }
@@ -63,11 +77,9 @@ dependencies {
 
 apply from: 'capacitor.build.gradle'
 
-try {
-    def servicesJSON = file('google-services.json')
-    if (servicesJSON.text) {
-        apply plugin: 'com.google.gms.google-services'
-    }
-} catch(Exception e) {
-    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+def servicesJSON = file('google-services.json')
+if (servicesJSON.exists() && servicesJSON.text.trim()) {
+    apply plugin: 'com.google.gms.google-services'
+} else {
+    logger.warn("google-services.json not found or empty; google-services plugin not applied.")
 }

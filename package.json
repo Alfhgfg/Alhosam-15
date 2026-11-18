@@ -9,10 +9,10 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit",
-    "cap:sync": "npm run build && npx cap sync android",
-    "android:apk": "npm run cap:sync && cd android && ./gradlew assembleRelease --no-daemon --max-workers=1",
-    "android:aab": "npm run cap:sync && cd android && ./gradlew bundleRelease --no-daemon --max-workers=1",
-    "android:build": "npm run cap:sync && cd android && ./gradlew assembleRelease bundleRelease --no-daemon --max-workers=1"
+    "cap:sync": "npm run build && npx cap sync android && node -e \"const fs=require('fs');for(const p of ['android/app/src/main/assets/public/downloads','android/app/src/main/assets/public/assets/aistudio'])fs.rmSync(p,{recursive:true,force:true});\"",
+    "android:apk": "npm run cap:sync && cd android && ./gradlew assembleRelease --no-daemon --max-workers=1 --stacktrace",
+    "android:aab": "npm run cap:sync && cd android && ./gradlew bundleRelease --no-daemon --max-workers=1 --stacktrace",
+    "android:build": "npm run cap:sync && cd android && ./gradlew assembleRelease bundleRelease --no-daemon --max-workers=1 --stacktrace"
   },
   "dependencies": {
     "@capacitor/android": "^8.6.2",
